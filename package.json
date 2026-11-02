@@ -1,0 +1,27 @@
+{
+  "name": "timebox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A minimal countdown timer for exams, exercises, and meetings.",
+  "author": "Nadine von Frankenberg",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve@14 -l 8080 src",
+    "lint": "npm run lint:js && npm run lint:html",
+    "lint:js": "eslint .",
+    "lint:html": "html-validate src/index.html",
+    "test": "node --test",
+    "check": "npm run lint && npm test",
+    "build": "rm -rf _site && cp -R src _site"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
+    "html-validate": "^9.7.1"
+  }
+}

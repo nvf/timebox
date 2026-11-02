@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Timebox</title>
+  <meta name="description" content="A minimal countdown timer for exams, exercises, and meetings.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // Apply the saved theme before the first paint to avoid a flash. Storage key must match js/app.js.
+    try {
+      document.documentElement.dataset.theme = JSON.parse(localStorage.getItem('timebox.theme'))
+        || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch { /* storage unavailable: app.js falls back to the default theme */ }
+  </script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+
+  <!-- Setup screen -->
+  <main id="setup" class="setup">
+    <form id="setup-form" class="card" autocomplete="off">
+      <h1 class="card__title">Timebox</h1>
+
+      <label class="field-label" for="title-input">Title (optional)</label>
+      <input id="title-input" class="input" type="text" placeholder="e.g. Exercise 2, Q&amp;A, Break" maxlength="80">
+
+      <div class="field-row">
+        <div>
+          <label class="field-label" for="duration-input">Duration (minutes)</label>
+          <input id="duration-input" class="input" type="number" min="0.5" step="any" value="30" inputmode="decimal">
+        </div>
+        <div>
+          <label class="field-label" for="until-input">…or until</label>
+          <input id="until-input" class="input" type="time">
+        </div>
+      </div>
+      <div id="presets" class="chips"></div>
+
+      <label class="field-label" for="threshold-input">Show seconds in the last … minutes</label>
+      <input id="threshold-input" class="input" type="number" min="0" step="any" value="5" inputmode="decimal" aria-describedby="threshold-hint">
+      <p id="threshold-hint" class="hint">Before that, only whole minutes are shown.</p>
+
+      <fieldset class="theme-picker">
+        <legend class="field-label">Theme</legend>
+        <div class="theme-picker__options">
+          <button type="button" class="swatch" data-theme-choice="light" aria-pressed="false"><span class="swatch__dot"></span>Light</button>
+          <button type="button" class="swatch" data-theme-choice="dark" aria-pressed="false"><span class="swatch__dot"></span>Dark</button>
+          <button type="button" class="swatch" data-theme-choice="sage" aria-pressed="false"><span class="swatch__dot"></span>Sage</button>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" class="btn btn--primary">Start</button>
+        <button type="button" id="copy-link" class="btn" title="Copy a link with these settings">Copy link</button>
+      </div>
+    </form>
+
+    <footer class="site-footer">
+      <span>© 2026 Nadine von Frankenberg</span>
+      <a href="https://github.com/nvf/timebox" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        Source on GitHub
+      </a>
+    </footer>
+  </main>
+
+  <!-- Timer screen -->
+  <section id="timer" class="timer" aria-label="Timer" hidden>
+    <div id="face" class="face">
+      <div id="timer-title" class="face__title"></div>
+      <div id="clock" class="face__clock"></div>
+      <div id="status" class="face__status"></div>
+    </div>
+
+    <div class="layout-toolbar" role="toolbar" aria-label="Layout">
+      <span class="layout-toolbar__label">Layout</span>
+      <button type="button" class="icon-btn" data-action="move-up" title="Move up (↑)" aria-label="Move up">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+      </button>
+      <button type="button" class="icon-btn" data-action="move-down" title="Move down (↓)" aria-label="Move down">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+      </button>
+      <span class="layout-toolbar__separator"></span>
+      <button type="button" class="icon-btn" data-action="shrink" title="Smaller (−)" aria-label="Smaller">A−</button>
+      <button type="button" class="icon-btn" data-action="grow" title="Larger (+)" aria-label="Larger">A+</button>
+      <span class="layout-toolbar__separator"></span>
+      <button type="button" class="icon-btn" data-action="reset-layout" title="Reset position &amp; size (0)">Reset</button>
+      <button type="button" class="icon-btn" data-action="close-layout" title="Done (L or Enter)">Done</button>
+    </div>
+
+    <div class="controls">
+      <button type="button" class="icon-btn" data-action="toggle-layout" aria-pressed="false" title="Layout: move &amp; resize (L)" aria-label="Layout">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg>
+      </button>
+      <button type="button" class="icon-btn" data-action="toggle-pause" title="Pause / resume (Space)" aria-label="Pause or resume"></button>
+      <button type="button" class="icon-btn" data-action="cycle-theme" title="Theme: light / dark / sage (T)" aria-label="Change theme">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
+      </button>
+      <button type="button" class="icon-btn" data-action="toggle-fullscreen" title="Fullscreen (F)" aria-label="Fullscreen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+      <button type="button" class="icon-btn" data-action="stop" title="Stop &amp; reset (R)" aria-label="Stop and reset">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div id="note" class="note" aria-hidden="true"></div>
+    <div class="progress"><div id="progress-fill" class="progress__fill"></div></div>
+  </section>
+
+</body>
+</html>
