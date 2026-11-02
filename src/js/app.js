@@ -24,7 +24,7 @@ const LENGTH_HINT_REFRESH_MS = 15 * 1000;
 const SUSPICIOUS_LENGTH_MS = 12 * 60 * MINUTE; // longer usually means a mistyped "until" time
 
 const SCALE = { min: 0.3, max: 1.5, factor: 1.1, initial: 1 };
-const OFFSET = { min: -40, max: 40, step: 1, initial: 0 }; // % of screen height, negative = up
+const OFFSET = { min: -40, max: 40, step: 2, initial: 0 }; // % of screen height, negative = up
 const PINCH_SENSITIVITY = 200;
 
 // Approximate width of one clock glyph in em; used to fit the clock to the screen width.
