@@ -28,19 +28,25 @@
 
       <div class="field-row">
         <div>
-          <label class="field-label" for="duration-input">Duration (minutes)</label>
-          <input id="duration-input" class="input" type="number" min="0.5" step="any" value="30" inputmode="decimal">
+          <label class="field-label" for="duration-input">Duration</label>
+          <input id="duration-input" class="input" type="text" value="30" placeholder="90 or 1:30" spellcheck="false" aria-describedby="length-hint">
         </div>
         <div>
           <label class="field-label" for="until-input">…or until</label>
-          <input id="until-input" class="input" type="time">
+          <input id="until-input" class="input" type="time" aria-describedby="length-hint">
         </div>
       </div>
+      <p id="length-hint" class="hint" aria-live="polite"></p>
       <div id="presets" class="chips"></div>
 
       <label class="field-label" for="threshold-input">Show seconds in the last … minutes</label>
       <input id="threshold-input" class="input" type="number" min="0" step="any" value="5" inputmode="decimal" aria-describedby="threshold-hint">
       <p id="threshold-hint" class="hint">Before that, only whole minutes are shown.</p>
+
+      <label class="check">
+        <input id="overtime-input" type="checkbox">
+        <span>Count overtime after zero (<span class="check__example">+2:13</span>)</span>
+      </label>
 
       <fieldset class="theme-picker">
         <legend class="field-label">Theme</legend>
@@ -97,6 +103,9 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg>
       </button>
       <button type="button" class="icon-btn" data-action="toggle-pause" title="Pause / resume (Space)" aria-label="Pause or resume"></button>
+      <button type="button" class="icon-btn" data-action="toggle-overtime" aria-pressed="false" title="Overtime: count past zero (O)" aria-label="Overtime">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2h5M12 2v3"/></svg>
+      </button>
       <button type="button" class="icon-btn" data-action="cycle-theme" title="Theme: light / dark / sage (T)" aria-label="Change theme">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
       </button>
@@ -104,7 +113,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
       </button>
       <button type="button" class="icon-btn" data-action="toggle-help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
-      <button type="button" class="icon-btn" data-action="stop" title="Stop &amp; reset (R)" aria-label="Stop and reset">
+      <button type="button" class="icon-btn" data-action="stop" title="Stop &amp; reset (R, press twice)" aria-label="Stop and reset">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
@@ -119,9 +128,11 @@
           <dt><kbd>⌘/Ctrl</kbd> <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></dt><dd>Larger / smaller / reset size</dd>
           <dt><kbd>Shift</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Move timer up / down</dd>
           <dt><kbd>L</kbd></dt><dd>Layout tool: move &amp; resize</dd>
+          <dt><kbd>O</kbd></dt><dd>Overtime on / off (count past zero)</dd>
           <dt><kbd>F</kbd></dt><dd>Fullscreen</dd>
           <dt><kbd>T</kbd></dt><dd>Change theme</dd>
-          <dt><kbd>R</kbd></dt><dd>Stop &amp; reset</dd>
+          <dt><kbd>R</kbd></dt><dd>Stop &amp; reset (press twice)</dd>
+          <dt>Long-press clock</dt><dd>Add 1 minute (touch)</dd>
           <dt><kbd>?</kbd></dt><dd>Show / hide this list</dd>
         </dl>
         <button type="button" class="btn" data-action="close-help">Close</button>

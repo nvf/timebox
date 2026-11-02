@@ -79,3 +79,15 @@ test('a long-finished countdown is stale, a paused one never is', () => {
   countdown.togglePause(T0);
   assert.equal(countdown.isStale(60 * MINUTE, T0 + 500 * MINUTE), false);
 });
+
+test('overtime counts from zero once finished, and is zero before', () => {
+  const countdown = start();
+  assert.equal(countdown.overtimeMs(T0 + 5 * MINUTE), 0);
+  assert.equal(countdown.overtimeMs(T0 + 12 * MINUTE), 2 * MINUTE);
+});
+
+test('overtime counting is off by default and survives a reload', () => {
+  assert.equal(start().overtime, false);
+  const countdown = Countdown.start({ durationMs: MINUTE, thresholdMs: 0, overtime: true }, T0);
+  assert.equal(Countdown.fromJSON(JSON.parse(JSON.stringify(countdown))).overtime, true);
+});

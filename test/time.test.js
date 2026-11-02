@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MINUTE, SECOND, clamp, formatRemaining, msUntilClockTime } from '../src/js/time.js';
+import {
+  MINUTE, SECOND, clamp, formatDuration, formatOvertime, formatRemaining, msUntilClockTime, parseDuration,
+} from '../src/js/time.js';
 
 const run = { thresholdMs: 5 * MINUTE, totalMs: 90 * MINUTE };
 
@@ -45,4 +47,25 @@ test('clamp keeps values in range', () => {
   assert.equal(clamp(5, 0, 3), 3);
   assert.equal(clamp(-1, 0, 3), 0);
   assert.equal(clamp(2, 0, 3), 2);
+});
+
+test('formatOvertime counts up past zero', () => {
+  assert.equal(formatOvertime(0), '+0:00');
+  assert.equal(formatOvertime(2 * MINUTE + 13 * SECOND + 900), '+2:13');
+  assert.equal(formatOvertime(62 * MINUTE + 5 * SECOND), '+1:02:05');
+});
+
+test('formatDuration rounds up to whole minutes for hints', () => {
+  assert.equal(formatDuration(45 * MINUTE), '45 min');
+  assert.equal(formatDuration(84 * MINUTE + SECOND), '1 h 25 min');
+  assert.equal(formatDuration(120 * MINUTE), '2 h');
+});
+
+test('parseDuration accepts minutes, h:mm and units', () => {
+  const cases = { '90': 90, '1.5': 1.5, '1,5': 1.5, '1:30': 90, '1h30': 90, '1h 30m': 90, '45min': 45, '90s': 1.5, '2h': 120 };
+  for (const [input, minutes] of Object.entries(cases)) assert.equal(parseDuration(input), minutes * MINUTE, input);
+});
+
+test('parseDuration rejects unreadable input', () => {
+  for (const input of ['', 'abc', '1:75', 'm', '30 15', '1h30m20']) assert.ok(Number.isNaN(parseDuration(input)), input);
 });

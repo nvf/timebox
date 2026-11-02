@@ -9,18 +9,20 @@ export class Countdown {
    * @param {number} state.endAt          Epoch ms when the timer reaches zero (while running).
    * @param {boolean} [state.paused]
    * @param {number} [state.pausedRemainingMs] Remaining time frozen at the moment of pausing.
+   * @param {boolean} [state.overtime] Keep counting up past zero instead of stopping at 0:00.
    */
-  constructor({ title = '', totalMs, thresholdMs, endAt, paused = false, pausedRemainingMs = 0 }) {
+  constructor({ title = '', totalMs, thresholdMs, endAt, paused = false, pausedRemainingMs = 0, overtime = false }) {
     this.title = String(title);
     this.totalMs = totalMs;
     this.thresholdMs = thresholdMs;
     this.endAt = endAt;
     this.paused = Boolean(paused);
     this.pausedRemainingMs = pausedRemainingMs;
+    this.overtime = Boolean(overtime);
   }
 
-  static start({ title, durationMs, thresholdMs }, now = Date.now()) {
-    return new Countdown({ title, totalMs: durationMs, thresholdMs, endAt: now + durationMs });
+  static start({ title, durationMs, thresholdMs, overtime }, now = Date.now()) {
+    return new Countdown({ title, totalMs: durationMs, thresholdMs, endAt: now + durationMs, overtime });
   }
 
   /** Restores a countdown saved with JSON.stringify, or returns null if the data is unusable. */
@@ -36,6 +38,11 @@ export class Countdown {
 
   isDone(now = Date.now()) {
     return this.remainingMs(now) <= 0;
+  }
+
+  /** Time elapsed since the countdown reached zero (0 while time is left). */
+  overtimeMs(now = Date.now()) {
+    return this.paused ? 0 : Math.max(0, now - this.endAt);
   }
 
   /** Fraction of the run still left, from 1 down to 0. */

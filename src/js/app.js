@@ -1,4 +1,6 @@
-import { MINUTE, clamp, formatRemaining, msUntilClockTime } from './time.js';
+import {
+  MINUTE, clamp, formatDuration, formatOvertime, formatRemaining, msUntilClockTime, parseDuration,
+} from './time.js';
 import { Countdown } from './countdown.js';
 
 /* ---------- Configuration ---------- */
@@ -7,7 +9,7 @@ const APP_NAME = 'Timebox';
 const STORAGE_PREFIX = 'timebox.'; // keep in sync with the theme bootstrap in index.html
 const THEMES = ['light', 'dark', 'sage'];
 const PRESET_MINUTES = [5, 10, 15, 20, 30, 45, 60, 90, 120];
-const DEFAULTS = { minutes: 30, thresholdMinutes: 5 };
+const DEFAULTS = { minutes: 30, thresholdMinutes: 5, overtime: false };
 
 const TICK_MS = 250;
 const CONTROLS_IDLE_MS = 2500;
@@ -15,6 +17,11 @@ const NOTE_VISIBLE_MS = 1200;
 const RESUME_NOTE_MS = 4000;
 const COPY_FEEDBACK_MS = 1500;
 const RESUME_MAX_AGE_MS = 60 * MINUTE;
+const STOP_CONFIRM_MS = 3000;
+const LONG_PRESS_MS = 600;
+const LONG_PRESS_SLOP_PX = 10;
+const LENGTH_HINT_REFRESH_MS = 15 * 1000;
+const SUSPICIOUS_LENGTH_MS = 12 * 60 * MINUTE; // longer usually means a mistyped "until" time
 
 const SCALE = { min: 0.3, max: 1.5, factor: 1.1, initial: 1 };
 const OFFSET = { min: -40, max: 40, step: 1, initial: 0 }; // % of screen height, negative = up
@@ -56,7 +63,9 @@ const el = {
   titleInput: $('#title-input'),
   durationInput: $('#duration-input'),
   untilInput: $('#until-input'),
+  lengthHint: $('#length-hint'),
   thresholdInput: $('#threshold-input'),
+  overtimeInput: $('#overtime-input'),
   presets: $('#presets'),
   themeChoices: document.querySelectorAll('[data-theme-choice]'),
   copyLink: $('#copy-link'),
@@ -72,6 +81,7 @@ const el = {
   help: $('#help'),
   pauseButton: $('[data-action="toggle-pause"]'),
   layoutButton: $('[data-action="toggle-layout"]'),
+  overtimeButton: $('[data-action="toggle-overtime"]'),
 };
 
 const state = {
@@ -82,6 +92,7 @@ const state = {
   tickId: 0,
   idleId: 0,
   noteId: 0,
+  stopArmedUntil: 0,
   wakeLock: /** @type {WakeLockSentinel | null} */ (null),
 };
 
@@ -184,16 +195,20 @@ function prefillForm() {
   el.durationInput.value = params.get('m') ?? prefs.minutes ?? DEFAULTS.minutes;
   el.thresholdInput.value = params.get('s') ?? prefs.thresholdMinutes ?? DEFAULTS.thresholdMinutes;
   el.titleInput.value = params.get('t') ?? prefs.title ?? '';
+  el.overtimeInput.checked = params.has('o') ? params.get('o') === '1' : (prefs.overtime ?? DEFAULTS.overtime);
+  const until = params.get('u');
+  if (until && /^\d{1,2}:\d{2}$/.test(until)) el.untilInput.value = until.padStart(5, '0');
 }
 
 function readSettings() {
   const until = el.untilInput.value;
-  const durationMs = until ? msUntilClockTime(until) : parseFloat(el.durationInput.value) * MINUTE;
+  const durationMs = until ? msUntilClockTime(until) : parseDuration(el.durationInput.value);
   const thresholdMinutes = Math.max(0, parseFloat(el.thresholdInput.value) || 0);
   return {
     title: el.titleInput.value.trim(),
     durationMs: Math.round(durationMs),
     thresholdMs: thresholdMinutes * MINUTE,
+    overtime: el.overtimeInput.checked,
   };
 }
 
@@ -203,6 +218,7 @@ function savePrefs() {
     // An "until" time is one-off; keep the last real duration instead.
     minutes: el.untilInput.value ? previous.minutes : el.durationInput.value,
     thresholdMinutes: el.thresholdInput.value,
+    overtime: el.overtimeInput.checked,
     title: el.titleInput.value.trim(),
   });
 }
@@ -211,6 +227,7 @@ function handleSubmit(event) {
   event.preventDefault();
   const settings = readSettings();
   if (!(settings.durationMs > 0)) {
+    updateLengthHint();
     el.durationInput.focus();
     return;
   }
@@ -223,14 +240,43 @@ function handlePresetClick(event) {
   if (!preset) return;
   el.durationInput.value = preset.dataset.minutes;
   el.untilInput.value = '';
+  updateLengthHint();
+}
+
+/** Double-clicking a preset starts right away. */
+function handlePresetDoubleClick(event) {
+  if (!event.target.closest('[data-minutes]')) return;
+  handlePresetClick(event);
+  el.form.requestSubmit();
+}
+
+const formatClockTime = (timestamp) =>
+  new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/** Shows what the form will start ("1 h 25 min · ends 11:30"), so typos are caught before starting. */
+function updateLengthHint() {
+  const { durationMs } = readSettings();
+  const hint = el.lengthHint;
+  if (!(durationMs > 0)) {
+    hint.textContent = 'Type minutes (90), h:mm (1:30), or e.g. 1h 30m.';
+    hint.classList.add('hint--warn');
+    return;
+  }
+  const length = formatDuration(durationMs);
+  const end = formatClockTime(Date.now() + durationMs);
+  const suspicious = durationMs > SUSPICIOUS_LENGTH_MS;
+  hint.textContent = suspicious ? `Check the time: ${end} is tomorrow (${length})` : `${length} · ends ${end}`;
+  hint.classList.toggle('hint--warn', suspicious);
 }
 
 function shareUrl() {
   const url = new URL(location.href);
   url.search = '';
   url.hash = '';
-  url.searchParams.set('m', el.durationInput.value);
+  if (el.untilInput.value) url.searchParams.set('u', el.untilInput.value);
+  else url.searchParams.set('m', el.durationInput.value.trim());
   url.searchParams.set('s', el.thresholdInput.value);
+  if (el.overtimeInput.checked) url.searchParams.set('o', '1');
   const title = el.titleInput.value.trim();
   if (title) url.searchParams.set('t', title);
   return url.href;
@@ -268,9 +314,18 @@ function startCountdown(countdown) {
   showControls();
 }
 
-function stopCountdown() {
-  if (!state.countdown.isDone() && !confirm('Stop and reset the timer?')) return;
+/** Stopping a running timer takes two presses, so a stray key can't end it (and no dialog appears on the projector). */
+function requestStop() {
+  if (state.countdown.isDone() || Date.now() < state.stopArmedUntil) {
+    stopCountdown();
+    return;
+  }
+  state.stopArmedUntil = Date.now() + STOP_CONFIRM_MS;
+  showNote('Press R (or ✕) again to stop', STOP_CONFIRM_MS);
+}
 
+function stopCountdown() {
+  state.stopArmedUntil = 0;
   clearInterval(state.tickId);
   state.countdown = null;
   storage.remove('session');
@@ -279,12 +334,13 @@ function stopCountdown() {
   setLayoutMode(false);
   closeHelp();
   hideControls();
-  body.classList.remove('paused');
+  body.classList.remove('paused', 'overtime');
   delete body.dataset.phase;
   document.title = APP_NAME;
 
   el.timer.hidden = true;
   el.setup.hidden = false;
+  updateLengthHint();
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
 
@@ -292,6 +348,14 @@ function togglePause() {
   state.countdown.togglePause();
   saveCountdown();
   render();
+}
+
+/** Overtime can be switched on before starting or while running (e.g. when a talk runs long). */
+function toggleOvertime() {
+  state.countdown.overtime = !state.countdown.overtime;
+  saveCountdown();
+  render();
+  showNote(state.countdown.overtime ? 'Overtime on' : 'Overtime off');
 }
 
 /** Buffer time: keyboard-only (B / Shift+B), so the audience never sees a button for it. */
@@ -333,8 +397,7 @@ function statusText(phase, paused) {
 /** Shown small at the bottom of the screen while running. */
 function endsText(phase, paused, endTimestamp) {
   if (phase === 'done' || paused) return '';
-  const endTime = new Date(endTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return `Ends at ${endTime}`;
+  return `Ends at ${formatClockTime(endTimestamp)}`;
 }
 
 function render() {
@@ -346,21 +409,29 @@ function render() {
   el.progress.style.transform = `scaleX(${countdown.progress(now)})`;
 
   const display = formatRemaining(remainingMs, countdown);
+  if (display.phase === 'done' && countdown.overtime) {
+    // Keep counting past zero ("+2:13") so meetings and talks can see how far over they are.
+    display.text = formatOvertime(countdown.overtimeMs(now));
+    display.html = display.text;
+  }
   const status = statusText(display.phase, countdown.paused);
   const ends = endsText(display.phase, countdown.paused, now + remainingMs);
-  const renderKey = [display.html, status, ends, scale].join('|');
+  const renderKey = [display.html, status, ends, scale, countdown.overtime].join('|');
   if (renderKey === state.lastRenderKey) return;
   state.lastRenderKey = renderKey;
 
   body.dataset.phase = display.phase;
   body.classList.toggle('paused', countdown.paused && display.phase !== 'done');
+  body.classList.toggle('overtime', countdown.overtime);
+  el.overtimeButton.setAttribute('aria-pressed', String(countdown.overtime));
   el.clock.style.setProperty('--size', clockFontSize(display.text, scale));
   el.clock.innerHTML = display.html; // built only from numbers in formatRemaining
   el.status.textContent = status;
   el.ends.textContent = ends;
   el.pauseButton.innerHTML = countdown.paused ? ICONS.play : ICONS.pause;
 
-  const label = display.phase === 'done' ? 'Time’s up' : display.text;
+  const label = display.phase !== 'done' ? display.text
+    : countdown.overtime ? `Time’s up ${display.text}` : 'Time’s up';
   document.title = countdown.title ? `${label} · ${countdown.title}` : label;
 }
 
@@ -412,9 +483,10 @@ function releaseWakeLock() {
 const BUTTON_ACTIONS = {
   'toggle-layout': toggleLayout,
   'toggle-pause': togglePause,
+  'toggle-overtime': toggleOvertime,
   'cycle-theme': cycleTheme,
   'toggle-fullscreen': toggleFullscreen,
-  stop: stopCountdown,
+  stop: requestStop,
   'move-up': moveUp,
   'move-down': moveDown,
   shrink,
@@ -447,9 +519,10 @@ const TIMER_KEYS = {
   p: togglePause,
   b: () => addBuffer(1),
   l: openLayout,
+  o: toggleOvertime,
   f: toggleFullscreen,
   t: cycleTheme,
-  r: stopCountdown,
+  r: requestStop,
 };
 
 const SHIFT_KEYS = {
@@ -484,10 +557,36 @@ function handleWheel(event) {
   setScale(state.scale * Math.exp(-event.deltaY / PINCH_SENSITIVITY));
 }
 
+/** Touch alternative to B: long-press the clock to add a minute (no visible button). */
+function bindLongPress() {
+  let pressId = 0;
+  let start = { x: 0, y: 0 };
+  const cancel = () => clearTimeout(pressId);
+
+  el.face.addEventListener('pointerdown', (event) => {
+    if (!state.countdown || isLayoutMode()) return;
+    start = { x: event.clientX, y: event.clientY };
+    cancel();
+    pressId = setTimeout(() => addBuffer(1), LONG_PRESS_MS);
+  });
+  el.face.addEventListener('pointermove', (event) => {
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > LONG_PRESS_SLOP_PX) cancel();
+  });
+  for (const type of ['pointerup', 'pointercancel', 'pointerleave']) el.face.addEventListener(type, cancel);
+  el.face.addEventListener('contextmenu', (event) => event.preventDefault());
+}
+
 function bindEvents() {
   el.form.addEventListener('submit', handleSubmit);
   el.presets.addEventListener('click', handlePresetClick);
-  el.durationInput.addEventListener('input', () => { el.untilInput.value = ''; });
+  el.presets.addEventListener('dblclick', handlePresetDoubleClick);
+  el.durationInput.addEventListener('input', () => {
+    el.untilInput.value = '';
+    updateLengthHint();
+  });
+  el.untilInput.addEventListener('input', updateLengthHint);
+  setInterval(() => { if (!state.countdown) updateLengthHint(); }, LENGTH_HINT_REFRESH_MS);
+  bindLongPress();
   el.copyLink.addEventListener('click', copyShareLink);
   el.themeChoices.forEach((button) => {
     button.addEventListener('click', () => applyTheme(button.dataset.themeChoice));
@@ -515,6 +614,7 @@ function init() {
   applyTheme(initialTheme());
   renderPresets();
   prefillForm();
+  updateLengthHint();
   bindEvents();
   setScale(Number(storage.get('scale')) || SCALE.initial, { announce: false });
   setOffset(Number(storage.get('offset')) || OFFSET.initial, { announce: false });

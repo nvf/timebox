@@ -153,6 +153,13 @@ svg {
   color: var(--secondary);
 }
 
+.hint--warn {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.hint:empty { display: none; }
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -167,6 +174,25 @@ svg {
   border: 1px solid var(--line);
   border-radius: 999px;
 }
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--secondary);
+  cursor: pointer;
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--fg);
+}
+
+.check__example { font-variant-numeric: tabular-nums; }
 
 .theme-picker {
   margin: 16px 0 0;
@@ -303,6 +329,10 @@ svg {
   border-radius: 12px;
   transform: translateY(calc(var(--offset) * 1vh));
   transition: transform 0.2s;
+  /* Long-press adds a minute on touch screens: no text selection or callout menu. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .face__title {
@@ -389,8 +419,10 @@ svg {
 [data-phase="done"] .face__clock { color: var(--end); }
 [data-phase="end"] .progress__fill { background: var(--end); }
 
-[data-phase="done"] .face__clock { animation: pulse 2s ease-in-out infinite; }
+/* Done: "0:00" pulses; with overtime on, the clock counts up ("+2:13") and the label pulses instead. */
 [data-phase="done"] .face__status { color: var(--end); }
+body:not(.overtime)[data-phase="done"] .face__clock,
+.overtime[data-phase="done"] .face__status { animation: pulse 2s ease-in-out infinite; }
 
 /* Paused: keep the time readable; make the "Paused" label the signal instead. */
 .paused .face__clock { opacity: 0.7; }
@@ -405,6 +437,7 @@ svg {
 
 @media (prefers-reduced-motion: reduce) {
   [data-phase="done"] .face__clock,
+  [data-phase="done"] .face__status,
   .paused .face__status { animation: none; }
 }
 
