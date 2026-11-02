@@ -6,8 +6,9 @@ A minimal countdown timer for exams, exercises, and meetings.
 
 - Shows whole minutes only (e.g. `47 min`, `1h 25m`) until the last *X* minutes, then switches to `m:ss`
 - Turns amber when seconds appear and red in the final minute; pulses "Time's up" at zero
-- Shows the clock time the timer ends, plus a thin progress bar
-- Different themes
+- Progress bar under the clock; the end time sits small at the bottom
+- High-contrast themes (light, dark, sage) that hold up on projectors
+- Survives a reload — just press `F` to go fullscreen again
 
 **Live:** https://nvf.github.io/timebox/
 
@@ -24,6 +25,7 @@ A minimal countdown timer for exams, exercises, and meetings.
 | `F` | Fullscreen |
 | `T` | Cycle theme: light → dark → sage |
 | `R` | Stop & reset (asks for confirmation) |
+| `?` | Show / hide this list on screen |
 
 ### Layout tool
 

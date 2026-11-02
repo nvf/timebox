@@ -6,10 +6,11 @@
   --bg: #fafaf9;
   --fg: #1c1917;
   --muted: #a8a29e;
+  --secondary: #57534e; /* secondary text: readable when projected (muted is for borders/hints) */
   --line: #e7e5e4;
   --card: #ffffff;
   --warn: #c2410c;
-  --end: #dc2626;
+  --end: #b91c1c;
 
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --radius: 10px;
@@ -22,6 +23,7 @@
   --bg: #0c0a09;
   --fg: #f5f5f4;
   --muted: #78716c;
+  --secondary: #a8a29e;
   --line: #292524;
   --card: #1c1917;
   --warn: #fb923c;
@@ -29,15 +31,16 @@
   color-scheme: dark;
 }
 
-/* Sage: soft green-grey background, muted ink, gentle (non-alarming) end colors */
+/* Sage: soft green-grey background, muted ink, earthy (non-alarming) end colors */
 :root[data-theme="sage"] {
   --bg: #e8ece4;
   --fg: #33403a;
   --muted: #8b978e;
+  --secondary: #56635b;
   --line: #d2d9cd;
   --card: #f1f4ee;
-  --warn: #a77d4a;
-  --end: #a85f55;
+  --warn: #8a5a14;
+  --end: #a23b2e;
   color-scheme: light;
 }
 
@@ -119,7 +122,7 @@ svg {
   margin: 16px 0 6px;
   padding: 0;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--secondary);
 }
 
 .input {
@@ -147,7 +150,7 @@ svg {
 .hint {
   margin: 6px 0 0;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--secondary);
 }
 
 .chips {
@@ -250,7 +253,7 @@ svg {
   justify-content: center;
   gap: 6px 16px;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--secondary);
   border-top: 1px solid var(--line);
 }
 
@@ -304,16 +307,16 @@ svg {
 
 .face__title {
   margin-bottom: 1vh;
-  font-size: calc(clamp(18px, 4vh, 40px) * var(--scale));
+  font-size: calc(clamp(20px, 6vh, 80px) * var(--scale));
   font-weight: 500;
   letter-spacing: -0.01em;
   text-align: center;
-  color: var(--muted);
+  color: var(--secondary);
 }
 
 .face__clock {
   font-size: var(--size, 30vw); /* set from JS to fit the current text */
-  font-weight: 300;
+  font-weight: 400; /* thin strokes blur on projectors */
   font-variant-numeric: tabular-nums;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -324,27 +327,53 @@ svg {
 .face__clock small {
   margin-left: 0.06em;
   font-size: 0.35em;
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: 0;
-  color: var(--muted);
+  color: var(--secondary);
 }
 
 .face__status {
   min-height: 1.2em;
   margin-top: 2vh;
-  font-size: calc(clamp(16px, 3vh, 32px) * var(--scale));
-  color: var(--muted);
+  font-size: calc(clamp(18px, 4.5vh, 56px) * var(--scale));
+  font-weight: 500;
+  color: var(--secondary);
 }
 
-.progress {
+/* End time: small, pinned to the bottom of the screen, independent of the layout offset. */
+.ends {
   position: fixed;
-  inset: auto 0 0;
-  height: 6px;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  font-size: clamp(14px, 2.4vh, 28px);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--secondary);
+  transition: opacity 0.3s;
+}
+
+/* Narrow screens: the bottom row is shared with the controls and notes, so step aside for them. */
+@media (max-width: 720px) {
+  .controls-visible .ends,
+  .layout-mode .ends,
+  body:has(.note.visible) .ends { opacity: 0; }
+}
+
+/* Sits under the clock (not at the screen edge, which low projectors cut off) and moves with it. */
+.progress {
+  align-self: stretch;
+  height: calc(max(6px, 1.4vh) * var(--scale));
+  margin-top: 3vh;
+  overflow: hidden;
   background: var(--line);
+  border-radius: 999px;
 }
 
 .progress__fill {
   height: 100%;
+  border-radius: inherit;
   background: var(--fg);
   transform-origin: left;
   transition: transform 0.25s linear, background-color 0.6s;
@@ -363,14 +392,20 @@ svg {
 [data-phase="done"] .face__clock { animation: pulse 2s ease-in-out infinite; }
 [data-phase="done"] .face__status { color: var(--end); }
 
-.paused .face__clock { opacity: 0.35; }
+/* Paused: keep the time readable; make the "Paused" label the signal instead. */
+.paused .face__clock { opacity: 0.7; }
+.paused .face__status {
+  color: var(--warn);
+  animation: pulse 2s ease-in-out infinite;
+}
 
 @keyframes pulse {
   50% { opacity: 0.35; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-phase="done"] .face__clock { animation: none; }
+  [data-phase="done"] .face__clock,
+  .paused .face__status { animation: none; }
 }
 
 /* Short confirmation for presenter-only actions (buffer, size, position) */
@@ -431,6 +466,65 @@ body:not(.controls-visible, .layout-mode) .timer {
 }
 
 /* ==========================================================================
+   Shortcut cheat sheet (?)
+   ========================================================================== */
+
+.help {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: var(--edge);
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.help__card {
+  width: 100%;
+  max-width: 460px;
+  max-height: 100%;
+  overflow: auto;
+  padding: 24px 28px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.help__title {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.help__keys {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 20px;
+  align-items: baseline;
+  margin: 0 0 20px;
+  font-size: 14px;
+}
+
+.help__keys dt { white-space: nowrap; }
+.help__keys dd { margin: 0; color: var(--secondary); }
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+}
+
+
+/* ==========================================================================
    Layout tool (move / resize, e.g. for a low projector)
    ========================================================================== */
 
@@ -459,7 +553,7 @@ body:not(.controls-visible, .layout-mode) .timer {
 .layout-toolbar__label {
   padding: 0 6px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--secondary);
 }
 
 .layout-toolbar__separator {

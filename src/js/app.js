@@ -12,6 +12,7 @@ const DEFAULTS = { minutes: 30, thresholdMinutes: 5 };
 const TICK_MS = 250;
 const CONTROLS_IDLE_MS = 2500;
 const NOTE_VISIBLE_MS = 1200;
+const RESUME_NOTE_MS = 4000;
 const COPY_FEEDBACK_MS = 1500;
 const RESUME_MAX_AGE_MS = 60 * MINUTE;
 
@@ -65,8 +66,10 @@ const el = {
   title: $('#timer-title'),
   clock: $('#clock'),
   status: $('#status'),
+  ends: $('#ends'),
   progress: $('#progress-fill'),
   note: $('#note'),
+  help: $('#help'),
   pauseButton: $('[data-action="toggle-pause"]'),
   layoutButton: $('[data-action="toggle-layout"]'),
 };
@@ -151,6 +154,12 @@ function closeLayout() {
   setLayoutMode(false);
   showControls();
 }
+
+/* ---------- Shortcut cheat sheet ---------- */
+
+const isHelpOpen = () => !el.help.hidden;
+const closeHelp = () => { el.help.hidden = true; };
+const toggleHelp = () => { el.help.hidden = !el.help.hidden; };
 
 /* ---------- Setup form ---------- */
 
@@ -268,6 +277,7 @@ function stopCountdown() {
   releaseWakeLock();
 
   setLayoutMode(false);
+  closeHelp();
   hideControls();
   body.classList.remove('paused');
   delete body.dataset.phase;
@@ -294,8 +304,13 @@ function addBuffer(minutes) {
 
 function resumeSavedCountdown() {
   const saved = Countdown.fromJSON(storage.get('session'));
-  if (saved && !saved.isStale(RESUME_MAX_AGE_MS)) startCountdown(saved);
-  else storage.remove('session');
+  if (!saved || saved.isStale(RESUME_MAX_AGE_MS)) {
+    storage.remove('session');
+    return;
+  }
+  startCountdown(saved);
+  // Browsers only allow fullscreen after a user gesture, so it can't be restored automatically.
+  if (!document.fullscreenElement) showNote('Press F for fullscreen', RESUME_NOTE_MS);
 }
 
 /* ---------- Rendering ---------- */
@@ -308,9 +323,16 @@ function clockFontSize(text, scale) {
   return `min(${width}vw, ${height}vh, ${maxWidth}vw)`;
 }
 
-function statusText(phase, paused, endTimestamp) {
+/** Shown under the clock: only states the audience must notice. */
+function statusText(phase, paused) {
   if (phase === 'done') return 'Time’s up';
   if (paused) return 'Paused';
+  return '';
+}
+
+/** Shown small at the bottom of the screen while running. */
+function endsText(phase, paused, endTimestamp) {
+  if (phase === 'done' || paused) return '';
   const endTime = new Date(endTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `Ends at ${endTime}`;
 }
@@ -324,8 +346,9 @@ function render() {
   el.progress.style.transform = `scaleX(${countdown.progress(now)})`;
 
   const display = formatRemaining(remainingMs, countdown);
-  const status = statusText(display.phase, countdown.paused, now + remainingMs);
-  const renderKey = [display.html, status, countdown.paused, scale].join('|');
+  const status = statusText(display.phase, countdown.paused);
+  const ends = endsText(display.phase, countdown.paused, now + remainingMs);
+  const renderKey = [display.html, status, ends, scale].join('|');
   if (renderKey === state.lastRenderKey) return;
   state.lastRenderKey = renderKey;
 
@@ -334,6 +357,7 @@ function render() {
   el.clock.style.setProperty('--size', clockFontSize(display.text, scale));
   el.clock.innerHTML = display.html; // built only from numbers in formatRemaining
   el.status.textContent = status;
+  el.ends.textContent = ends;
   el.pauseButton.innerHTML = countdown.paused ? ICONS.play : ICONS.pause;
 
   const label = display.phase === 'done' ? 'Time’s up' : display.text;
@@ -341,11 +365,11 @@ function render() {
 }
 
 /** Small, short-lived confirmation in the corner, easy to miss for the audience. */
-function showNote(text) {
+function showNote(text, durationMs = NOTE_VISIBLE_MS) {
   el.note.textContent = text;
   el.note.classList.add('visible');
   clearTimeout(state.noteId);
-  state.noteId = setTimeout(() => el.note.classList.remove('visible'), NOTE_VISIBLE_MS);
+  state.noteId = setTimeout(() => el.note.classList.remove('visible'), durationMs);
 }
 
 function showControls() {
@@ -397,6 +421,8 @@ const BUTTON_ACTIONS = {
   grow,
   'reset-layout': resetLayout,
   'close-layout': closeLayout,
+  'toggle-help': toggleHelp,
+  'close-help': closeHelp,
 };
 
 // Cmd/Ctrl + / − / 0 resize the timer instead of zooming the page.
@@ -434,6 +460,8 @@ const SHIFT_KEYS = {
 
 function keyAction(event) {
   const key = event.key.toLowerCase();
+  if (key === '?') return toggleHelp; // Shift+/ on most layouts, so check before the Shift keys
+  if (key === 'escape' && isHelpOpen()) return closeHelp;
   if (event.metaKey || event.ctrlKey) return event.altKey ? undefined : ZOOM_KEYS[key];
   if (event.altKey) return undefined;
   if (event.shiftKey && SHIFT_KEYS[key]) return SHIFT_KEYS[key];
@@ -468,6 +496,7 @@ function bindEvents() {
   el.timer.addEventListener('click', (event) => {
     const button = event.target.closest('[data-action]');
     if (button) BUTTON_ACTIONS[button.dataset.action]?.();
+    else if (event.target === el.help) closeHelp(); // click on the backdrop
   });
 
   document.addEventListener('keydown', handleKeydown);

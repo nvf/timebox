@@ -71,8 +71,10 @@
     <div id="face" class="face">
       <div id="timer-title" class="face__title"></div>
       <div id="clock" class="face__clock"></div>
+      <div class="progress"><div id="progress-fill" class="progress__fill"></div></div>
       <div id="status" class="face__status"></div>
     </div>
+    <div id="ends" class="ends"></div>
 
     <div class="layout-toolbar" role="toolbar" aria-label="Layout">
       <span class="layout-toolbar__label">Layout</span>
@@ -101,13 +103,32 @@
       <button type="button" class="icon-btn" data-action="toggle-fullscreen" title="Fullscreen (F)" aria-label="Fullscreen">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
       </button>
+      <button type="button" class="icon-btn" data-action="toggle-help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
       <button type="button" class="icon-btn" data-action="stop" title="Stop &amp; reset (R)" aria-label="Stop and reset">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
 
+    <div id="help" class="help" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+      <div class="help__card">
+        <h2 id="help-title" class="help__title">Keyboard shortcuts</h2>
+        <dl class="help__keys">
+          <dt><kbd>Space</kbd> <kbd>P</kbd></dt><dd>Pause / resume</dd>
+          <dt><kbd>B</kbd></dt><dd>Add 1 minute (keeps running)</dd>
+          <dt><kbd>Shift</kbd> <kbd>B</kbd></dt><dd>Remove 1 minute</dd>
+          <dt><kbd>⌘/Ctrl</kbd> <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></dt><dd>Larger / smaller / reset size</dd>
+          <dt><kbd>Shift</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Move timer up / down</dd>
+          <dt><kbd>L</kbd></dt><dd>Layout tool: move &amp; resize</dd>
+          <dt><kbd>F</kbd></dt><dd>Fullscreen</dd>
+          <dt><kbd>T</kbd></dt><dd>Change theme</dd>
+          <dt><kbd>R</kbd></dt><dd>Stop &amp; reset</dd>
+          <dt><kbd>?</kbd></dt><dd>Show / hide this list</dd>
+        </dl>
+        <button type="button" class="btn" data-action="close-help">Close</button>
+      </div>
+    </div>
+
     <div id="note" class="note" aria-hidden="true"></div>
-    <div class="progress"><div id="progress-fill" class="progress__fill"></div></div>
   </section>
 
 </body>
